@@ -374,7 +374,7 @@ def main():
         st.header("⚙️ Configuration")
 
         # Hardcoded API key for testing
-        api_key = "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"
+        api_key = "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"
         st.success("✅ API Key is hardcoded for testing")
 
         if api_key:
