@@ -365,58 +365,52 @@ def create_system_message(file_name, data_summary):
         """
     )
 
-# Main Streamlit App
 def main():
     st.title("📊 Financial Data Assistant")
     st.markdown("Upload your Excel file and ask questions about your financial data!")
 
-    # Sidebar for configuration
+    # ---------------- Sidebar Section ----------------
     with st.sidebar:
         st.header("⚙️ Configuration")
 
+        # Hardcoded API key for testing
+        api_key = "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"
+        st.success("✅ API Key is hardcoded for testing")
 
-           # FOR TESTING ONLY: Hardcoded API key
-    api_key = "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"
-    st.success("✅ API Key is hardcoded for testing")
-
-    if api_key:
-        st.success("✅ API Key provided")
-    else:
-        st.warning("⚠️ Please enter your Groq API key to continue")
+        if api_key:
+            st.success("✅ API Key provided")
+        else:
+            st.warning("⚠️ Please enter your Groq API key to continue")
 
         st.markdown("---")
-
-        # File upload
         st.header("📁 Upload Data")
-        uploaded_file = st.file_uploader(
-            "Choose an Excel file",
-            type=['xlsx', 'xls'],
-            help="Upload your financial Excel file"
-        )
 
-    # Main content area
+    # ✅ File uploader must be outside the sidebar to avoid scope issues
+    uploaded_file = st.file_uploader(
+        "Choose an Excel file",
+        type=['xlsx', 'xls'],
+        help="Upload your financial Excel file"
+    )
+
+    # ---------------- Main Content Section ----------------
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        # File processing
         if uploaded_file is not None:
             try:
-                # Read the Excel file
                 df = pd.read_excel(uploaded_file)
                 st.session_state.df = df
                 st.session_state.file_name = uploaded_file.name
                 st.session_state.data_summary = get_data_summary(df)
 
                 st.success(f"✅ Loaded file: {uploaded_file.name}")
-
-                # Display file info
                 st.info(f"📋 Shape: {df.shape[0]} rows, {df.shape[1]} columns")
 
-                # Show data preview
+                # Preview data
                 with st.expander("🔍 Data Preview", expanded=False):
                     st.dataframe(df.head())
 
-                # Show data summary
+                # Data summary
                 with st.expander("📊 Data Summary", expanded=False):
                     if 'Entity' in df.columns:
                         st.write(f"**Entities:** {len(df['Entity'].unique())} unique")
@@ -432,12 +426,12 @@ def main():
             except Exception as e:
                 st.error(f"❌ Error loading file: {str(e)}")
 
-        # Chat interface
+        # ---------------- Chat Section ----------------
         if st.session_state.df is not None and api_key:
             st.markdown("---")
             st.header("💬 Chat with your Financial Data")
 
-            # Initialize chat model if not already done
+            # Initialize LLM model and conversation
             if st.session_state.conversation is None:
                 chat_model = initialize_chat_model(api_key)
                 if chat_model:
@@ -448,59 +442,47 @@ def main():
                         verbose=False
                     )
 
-            # Display chat history
-            for i, (user_msg, bot_msg) in enumerate(st.session_state.chat_history):
+            # Display previous messages
+            for user_msg, bot_msg in st.session_state.chat_history:
                 with st.chat_message("user"):
                     st.write(user_msg)
                 with st.chat_message("assistant"):
                     st.write(bot_msg)
 
-            # Chat input
+            # New user input
             user_input = st.chat_input("Ask a question about your financial data...")
 
             if user_input and st.session_state.conversation:
-                # Add user message to chat
                 with st.chat_message("user"):
                     st.write(user_input)
 
-                # Process the query
                 with st.chat_message("assistant"):
                     with st.spinner("Analyzing your data..."):
                         try:
-                            # Analyze the query and get relevant data
                             analysis_results = analyze_financial_query(
                                 user_input,
                                 st.session_state.df,
                                 st.session_state.data_summary
                             )
 
-                            # Create enhanced message with data context
-                            data_context = ""
-                            if analysis_results:
-                                data_context = f"\n\nDATA ANALYSIS RESULTS:\n{json.dumps(analysis_results, indent=2, default=str)}"
-
+                            data_context = f"\n\nDATA ANALYSIS RESULTS:\n{json.dumps(analysis_results, indent=2, default=str)}"
                             enhanced_query = f"{user_input}{data_context}"
 
-                            # Get system message
                             system_message = create_system_message(
                                 st.session_state.file_name,
                                 st.session_state.data_summary
                             )
 
-                            # Get response from AI
                             messages = [system_message, HumanMessage(content=enhanced_query)]
                             response = st.session_state.conversation.llm.invoke(messages)
 
-                            # Display response
                             st.write(response.content)
-
-                            # Add to chat history
                             st.session_state.chat_history.append((user_input, response.content))
 
                         except Exception as e:
                             st.error(f"❌ Error processing query: {str(e)}")
 
-            # Clear chat button
+            # Clear chat history
             if st.button("🗑️ Clear Chat History"):
                 st.session_state.chat_history = []
                 st.rerun()
